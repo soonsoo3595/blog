@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import RightPanel from "@/components/RightPanel";
+import { AdminProvider } from "@/lib/admin-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,12 +47,14 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
-        <Header />
-        <div className="mx-auto grid max-w-[var(--layout-max-width)] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] lg:gap-[var(--layout-gap)]">
-          <Sidebar />
-          <main>{children}</main>
-          <RightPanel />
-        </div>
+        <AdminProvider>
+          <Header />
+          <div className="mx-auto grid max-w-[var(--layout-max-width)] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] lg:gap-[var(--layout-gap)]">
+            <Sidebar />
+            <main>{children}</main>
+            <RightPanel />
+          </div>
+        </AdminProvider>
       </body>
     </html>
   );

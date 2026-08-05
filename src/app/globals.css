@@ -38,9 +38,21 @@ html {
   background: var(--background);
 }
 
-body {
+/* html body(specificity 2)로 걸어서, 서드파티 라이브러리가 전역 `body { ... }` 규칙을
+   깔더라도(specificity 1) 우리 테마 색이 항상 이기도록 한다. */
+html body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* react-notion-x 색상/폰트 변수를 우리 테마로 오버라이드.
+   html:root(specificity 1,1)로 걸어서 react-notion-x의 :root/.dark-mode
+   규칙(둘 다 specificity 1,0)보다 항상 이기게 한다. --foreground/--background
+   자체가 이미 .dark 클래스에 반응하므로, 다크모드 전용 블록을 따로 안 둬도 된다. */
+html:root {
+  --notion-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --fg-color: var(--foreground);
+  --bg-color: var(--background);
 }

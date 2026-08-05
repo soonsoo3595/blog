@@ -36,26 +36,32 @@
 
 ### 지금까지 만들어진 구조
 
-- `src/app/layout.tsx` — 헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서.
-- `src/components/Header.tsx` — 로고(`public/logo.svg`, 교체 가능) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 알림 → 테마 토글 → 설정 → 포트폴리오 순서.
-- `src/components/Sidebar.tsx` — `ProfileCard`(프로필 사진+이름+아이디) / `About`(마크다운, `src/content/about.md` 수정으로 편집, `remark-gfm` 설치되어 표·취소선·체크박스도 지원) / `CategoryList`(카테고리 목록) 3개 컴포넌트를 조합. **분리 요청에 따라 컴포넌트 파일 단위로 나눠져 있음 — 다시 합치지 말 것.**
+- `src/app/layout.tsx` — 헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel), `AdminProvider`로 감싸져 있음(아래 참고). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서.
+- `src/components/Header.tsx` — 로고(`public/logo.svg`, 교체 가능) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 알림 → 테마 토글 → `AdminControls` → 포트폴리오 순서.
+- `src/lib/admin-context.tsx` + `src/components/AdminControls.tsx` — 관리자 인증 상태를 Context로 공유. 비로그인 시 "인증" 버튼(누르면 바로 성공 처리하는 mock — 실제 인증 아직 없음), 로그인 시 "설정" 아이콘 노출. 실제 인증 방식은 GitHub OAuth로 정하고 아직 미구현(백엔드 붙을 때 진행).
+- `src/components/Sidebar.tsx` — `ProfileCard` / `About`(마크다운, `src/content/about.md` 수정으로 편집, `remark-gfm` 설치되어 표·취소선·체크박스도 지원) / `CategoryList`(카테고리 목록) 3개 컴포넌트를 조합. **분리 요청에 따라 컴포넌트 파일 단위로 나눠져 있음 — 다시 합치지 말 것.**
+  - `ProfileCard.tsx` — GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이메일을 서버 컴포넌트에서 fetch(하루 캐시). 이메일은 GitHub에 public으로 설정 안 돼 있으면 표시 안 함. 아바타 오른쪽 아래에 GitHub 프로필로 가는 작은 뱃지 링크 있음. `next.config.ts`에 `avatars.githubusercontent.com` 이미지 도메인 허용 필요.
+  - `CategoryList.tsx` — `mock.ts`의 `parentId` 기반 계층 구조를 트리로 렌더링, 하위 카테고리 있는 항목만 화살표 토글(기본 접힘)로 펼침.
 - `src/components/RightPanel.tsx` — 방문자 통계(mock) + "추후 추가"(광고 자리, 아직 미정) 패널.
 - `src/app/page.tsx` — `PostList`만 렌더링 (검색창은 헤더로 옮김).
 - `src/app/not-found.tsx` — 커스텀 404 페이지. **이거 없으면 안 됨**: Next.js 기본 404는 `prefers-color-scheme`(OS 설정) 기준으로 자체 스타일을 강제 적용해서, 우리 앱의 다크모드 토글(class 기반)과 충돌해 배경색이 깨지는 버그가 있었음 (커스텀 404로 해결됨).
-- `src/lib/mock.ts` — 카테고리/글/방문자 통계 임시 데이터. **백엔드(.NET+Postgres) 연결되면 이 파일과 그걸 참조하는 코드는 전부 실제 데이터 연동으로 교체해야 함.**
+- `src/lib/mock.ts` — 카테고리(계층형, `id`/`parentId`/`slug`)/글/방문자 통계 임시 데이터. **백엔드(.NET+Postgres) 연결되면 이 파일과 그걸 참조하는 코드는 전부 실제 데이터 연동으로 교체해야 함.**
+- `src/app/globals.css`에 `html body`, `html:root`처럼 일부러 selector를 두 개 결합해 specificity를 높인 규칙들이 있음 — 서드파티 라이브러리가 전역 `body`/`:root` 스타일(색상 등)을 깔아서 우리 테마를 덮어써버리는 문제를 겪은 뒤 넣은 방어 패턴. 새 서드파티 CSS를 붙일 때 비슷한 충돌이 생기면 같은 방식(더 구체적인 selector) 참고.
 - 색상: 라이트 모드 텍스트 `#475570` 톤 유지 (사용자 지정), 다크 모드는 Claude가 같은 계열로 임의 조정함 — 필요시 재조정 가능.
 
 ### 알려진 이슈 / 미해결
 
 - **다크모드 토글 아이콘이 페이지 이동 직후 순간적으로 깜빡이거나(리마운트 시) 잘못된 아이콘으로 고정되는 문제**를 여러 번 시도해 고쳤으나(`ThemeToggle.tsx`), 사용자가 마지막으로 확인했을 때도 완전히 해결됐는지 재확인 전이었음. 최신 구현은 "마운트 전엔 아이콘을 그리지 않다가 마운트 직후에만 실제 DOM 상태로 확정" 방식(`mounted` state 게이팅). 재현되면 `document.documentElement.classList`, `localStorage.getItem('theme')`, `getComputedStyle(...).backgroundColor` 순으로 직접 브라우저 콘솔에서 확인하며 디버깅했음 — 같은 방식 참고.
-- 알림/설정/포트폴리오 버튼은 UI만 있고 동작 없음 (백엔드/인증 붙을 때 구현).
-- 조회수·좋아요·댓글·로그인 시 수정 버튼 등은 아직 미구현 (와이어프레임 상의 목표일 뿐).
+- 알림/설정/포트폴리오 버튼은 UI만 있고 동작 없음. 인증 버튼도 위에 적었듯 mock임.
+- 조회수·좋아요·댓글·로그인 시 수정 버튼, 글쓰기 화면 등은 아직 미구현 (와이어프레임 상의 목표일 뿐 — 콘텐츠 작성/관리 방식 자체를 다시 검토 중이라 섣불리 구현하지 말 것, 다음 세션에서 방향부터 확인).
 
 ### 남은 작업 (와이어프레임 기준)
 
 - [ ] 카테고리 클릭 → 해당 카테고리 문서 목록 페이지
 - [ ] 문서 상세 페이지 (조회수/좋아요/댓글/수정 버튼)
 - [ ] 검색 기능 실제 동작
+- [ ] 콘텐츠 작성/관리 방식 결정 (아직 확정 안 됨 — 다음 세션에서 먼저 확인할 것)
+- [ ] 관리자 인증(GitHub OAuth) 실제 구현
 - [ ] .NET 백엔드 + Postgres 스키마 설계, mock 데이터 실제 연동으로 교체
 - [ ] Cloudflare Tunnel 외부 노출 (레이아웃 어느 정도 정리된 뒤)
 

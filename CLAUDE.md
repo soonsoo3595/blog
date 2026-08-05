@@ -10,7 +10,7 @@
 - **백엔드**: .NET (ASP.NET Core Web API)
 - **DB**: PostgreSQL — JSONB로 유동적 스키마(태그/메타데이터) 처리, 내장 Full Text Search, permissive 오픈소스 라이선스, Npgsql 드라이버 성숙도가 선택 이유
 - **캐시**: Redis
-- **콘텐츠 관리**: MDX 또는 마크다운 파일 기반, 글 작성 부담을 낮추기 위해
+- **콘텐츠 관리**: 자체 마크다운 에디터 대신 **노션(Notion)에서 글을 쓰고, 블로그는 그 페이지를 읽기 전용으로 보여주는 뷰어** 역할만 한다 (`react-notion-x` 등 활용 예정, 아직 미구현). 자체 에디터 UX가 마음에 안 들어서 나온 결정.
 - **디자인**: 라이트·다크 모드, 노션 스타일 참고 (변경 가능)
 
 ## 콘텐츠와 코드의 분리
@@ -36,9 +36,9 @@
 
 ### 지금까지 만들어진 구조
 
-- `src/app/layout.tsx` — 헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel), `AdminProvider`로 감싸져 있음(아래 참고). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서.
-- `src/components/Header.tsx` — 로고(`public/logo.svg`, 교체 가능) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 알림 → 테마 토글 → `AdminControls` → 포트폴리오 순서.
-- `src/lib/admin-context.tsx` + `src/components/AdminControls.tsx` — 관리자 인증 상태를 Context로 공유. 비로그인 시 "인증" 버튼(누르면 바로 성공 처리하는 mock — 실제 인증 아직 없음), 로그인 시 "설정" 아이콘 노출. 실제 인증 방식은 GitHub OAuth로 정하고 아직 미구현(백엔드 붙을 때 진행).
+- `src/app/layout.tsx` — 헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서.
+- `src/components/Header.tsx` — 로고(`public/logo.svg`, 교체 가능) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 알림 → 테마 토글 → 설정 → 포트폴리오 순서.
+- **관리자 인증 기능(`admin-context.tsx`, `AdminControls.tsx`)은 만들었다가 삭제함.** 콘텐츠를 노션에서 작성하는 쪽으로 방향을 정하면서, 블로그 자체에 로그인해서 글을 쓰거나 수정할 필요가 없어져서 지금은 불필요한 기능이 됨. 나중에 실제로 로그인이 필요한 기능(예: 댓글 관리자 권한 등)이 생기면 그때 다시 설계할 것 — 예전 mock 방식을 그대로 되살리지 말 것(설계가 허술했음).
 - `src/components/Sidebar.tsx` — `ProfileCard` / `About`(마크다운, `src/content/about.md` 수정으로 편집, `remark-gfm` 설치되어 표·취소선·체크박스도 지원) / `CategoryList`(카테고리 목록) 3개 컴포넌트를 조합. **분리 요청에 따라 컴포넌트 파일 단위로 나눠져 있음 — 다시 합치지 말 것.**
   - `ProfileCard.tsx` — GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이메일을 서버 컴포넌트에서 fetch(하루 캐시). 이메일은 GitHub에 public으로 설정 안 돼 있으면 표시 안 함. 아바타 오른쪽 아래에 GitHub 프로필로 가는 작은 뱃지 링크 있음. `next.config.ts`에 `avatars.githubusercontent.com` 이미지 도메인 허용 필요.
   - `CategoryList.tsx` — `mock.ts`의 `parentId` 기반 계층 구조를 트리로 렌더링, 하위 카테고리 있는 항목만 화살표 토글(기본 접힘)로 펼침.
@@ -52,17 +52,17 @@
 ### 알려진 이슈 / 미해결
 
 - **다크모드 토글 아이콘이 페이지 이동 직후 순간적으로 깜빡이거나(리마운트 시) 잘못된 아이콘으로 고정되는 문제**를 여러 번 시도해 고쳤으나(`ThemeToggle.tsx`), 사용자가 마지막으로 확인했을 때도 완전히 해결됐는지 재확인 전이었음. 최신 구현은 "마운트 전엔 아이콘을 그리지 않다가 마운트 직후에만 실제 DOM 상태로 확정" 방식(`mounted` state 게이팅). 재현되면 `document.documentElement.classList`, `localStorage.getItem('theme')`, `getComputedStyle(...).backgroundColor` 순으로 직접 브라우저 콘솔에서 확인하며 디버깅했음 — 같은 방식 참고.
-- 알림/설정/포트폴리오 버튼은 UI만 있고 동작 없음. 인증 버튼도 위에 적었듯 mock임.
-- 조회수·좋아요·댓글·로그인 시 수정 버튼, 글쓰기 화면 등은 아직 미구현 (와이어프레임 상의 목표일 뿐 — 콘텐츠 작성/관리 방식 자체를 다시 검토 중이라 섣불리 구현하지 말 것, 다음 세션에서 방향부터 확인).
+- 알림/설정/포트폴리오 버튼은 UI만 있고 동작 없음.
+- 조회수·좋아요·댓글 등은 아직 미구현. "로그인 시 수정 버튼" 같은 와이어프레임 목표는 콘텐츠를 노션에서 쓰기로 하면서 **더 이상 필요 없어졌을 가능성이 큼** (수정도 노션에서 하면 되므로) — 다음 세션에서 이 부분 와이어프레임 자체를 재검토할 것.
 
-### 남은 작업 (와이어프레임 기준)
+### 남은 작업
 
+- [ ] 노션을 콘텐츠 소스로 연동 (Notion API 토큰/페이지 또는 데이터베이스 ID 필요 — 사용자에게 확인), `react-notion-x`로 포스트 상세 페이지에서 렌더링
+- [ ] 노션 페이지 목록을 어떻게 "글 목록"(카테고리, 날짜 등 메타데이터)으로 가져올지 설계 (노션 데이터베이스의 속성을 메타데이터로 매핑하는 방식이 유력)
 - [ ] 카테고리 클릭 → 해당 카테고리 문서 목록 페이지
-- [ ] 문서 상세 페이지 (조회수/좋아요/댓글/수정 버튼)
 - [ ] 검색 기능 실제 동작
-- [ ] 콘텐츠 작성/관리 방식 결정 (아직 확정 안 됨 — 다음 세션에서 먼저 확인할 것)
-- [ ] 관리자 인증(GitHub OAuth) 실제 구현
-- [ ] .NET 백엔드 + Postgres 스키마 설계, mock 데이터 실제 연동으로 교체
+- [ ] 조회수/좋아요/댓글 기능 필요 여부 및 방식 재검토 (수정 기능은 노션 자체로 대체되어 불필요해짐)
+- [ ] .NET 백엔드 + Postgres 스키마 설계 (조회수·좋아요 등 노션이 못 다루는 부가 데이터용으로 필요할 수 있음 — 범위 재검토)
 - [ ] Cloudflare Tunnel 외부 노출 (레이아웃 어느 정도 정리된 뒤)
 
 ## 커밋 메시지 규칙

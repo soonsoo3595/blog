@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { getPublishedPosts } from "@/lib/notion";
+import { getPublishedPosts, type Post } from "@/lib/notion";
 
-export default async function PostList() {
-  const posts = await getPublishedPosts();
-
+export function PostListView({ posts }: { posts: Post[] }) {
   return (
     <ul className="flex flex-col gap-3">
       {posts.map((post) => (
@@ -21,4 +19,9 @@ export default async function PostList() {
       ))}
     </ul>
   );
+}
+
+export default async function PostList() {
+  const posts = await getPublishedPosts();
+  return <PostListView posts={posts} />;
 }

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const GITHUB_USERNAME = "soonsoo3595";
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME!;
 
 type GitHubUser = {
   login: string;

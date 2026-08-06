@@ -10,7 +10,7 @@ export default function TableOfContents({
   }
 
   return (
-    <nav className="sticky top-6 hidden w-48 shrink-0 flex-col gap-1 text-sm lg:flex">
+    <nav className="sticky top-6 hidden w-full flex-col gap-1 text-sm lg:flex">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-foreground/60">
         목차
       </p>

@@ -1,15 +1,40 @@
 import { notFound } from "next/navigation";
-import { getBlockValue, getPageTableOfContents } from "notion-utils";
-import type { PageBlock } from "notion-types";
+import type { Metadata } from "next";
 import { getPostBySlug, getPageRecordMap } from "@/lib/notion";
 import NotionPage from "@/components/NotionPage";
-import TableOfContents from "@/components/TableOfContents";
+import Comments from "@/components/Comments";
 
-export default async function PostDetailPage({
-  params,
-}: {
+type PageProps = {
   params: Promise<{ slug: string }>;
-}) {
+};
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+
+  if (!post) {
+    return {};
+  }
+
+  const description = `${post.categoryPath.join(" > ")} 카테고리 · 개발과 일상을 기록하는 개인 블로그`;
+
+  return {
+    title: post.title,
+    description,
+    alternates: { canonical: `/posts/${post.slug}` },
+    openGraph: {
+      title: post.title,
+      description,
+      type: "article",
+      publishedTime: post.date,
+      url: `/posts/${post.slug}`,
+    },
+  };
+}
+
+export default async function PostDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
 
@@ -18,23 +43,17 @@ export default async function PostDetailPage({
   }
 
   const recordMap = await getPageRecordMap(post.id);
-  const toc = getPageTableOfContents(
-    getBlockValue(recordMap.block[post.id]) as PageBlock,
-    recordMap,
-  );
 
   return (
-    <div className="flex items-start gap-8">
-      <article className="flex min-w-0 flex-1 flex-col gap-8">
-        <div>
-          <h1 className="text-4xl font-semibold">{post.title}</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            {post.date.split("T")[0]}
-          </p>
-        </div>
-        <NotionPage recordMap={recordMap} />
-      </article>
-      <TableOfContents items={toc} />
-    </div>
+    <article className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-4xl font-semibold">{post.title}</h1>
+        <p className="mt-1 text-sm text-foreground/60">
+          {post.date.split("T")[0]}
+        </p>
+      </div>
+      <NotionPage recordMap={recordMap} />
+      <Comments />
+    </article>
   );
 }

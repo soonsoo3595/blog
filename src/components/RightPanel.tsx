@@ -1,6 +1,17 @@
-import { mockStats } from "@/lib/mock";
+"use client";
+
+import { useEffect, useState } from "react";
 
 export default function RightPanel() {
+  const [stats, setStats] = useState({ today: 0, total: 0 });
+
+  useEffect(() => {
+    fetch("/api/visits", { method: "POST" })
+      .then((res) => res.json())
+      .then((data: { today: number; total: number }) => setStats(data))
+      .catch(() => {});
+  }, []);
+
   return (
     <aside className="flex flex-col gap-5">
       <div className="rounded-xl border border-border bg-panel p-5">
@@ -10,11 +21,11 @@ export default function RightPanel() {
         <dl className="flex flex-col gap-1 text-sm">
           <div className="flex justify-between">
             <dt className="text-foreground/60">오늘</dt>
-            <dd>{mockStats.todayVisitors}</dd>
+            <dd>{stats.today}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-foreground/60">전체</dt>
-            <dd>{mockStats.totalVisitors}</dd>
+            <dd>{stats.total}</dd>
           </div>
         </dl>
       </div>

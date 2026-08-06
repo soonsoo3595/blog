@@ -55,4 +55,31 @@ html:root {
   --notion-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --fg-color: var(--foreground);
   --bg-color: var(--background);
+  /* react-notion-x는 .notion-page 폭을 --notion-max-width(기본 720px)로 고정폭
+     지정한다 — 본문 옆에 목차(TableOfContents.tsx)를 추가한 뒤로 가운데 칼럼이
+     720px보다 좁아지는 경우가 생겨서 본문이 넘쳐 우측 패널까지 밀어냈다. 100%로 풀어서
+     실제 부모(article) 폭에 맞춰 줄어들도록 한다. */
+  --notion-max-width: 100%;
+}
+
+/* 우리 포스트 페이지는 노션 데이터베이스의 행(row)이라서, react-notion-x가 본문 위에
+   그 행의 속성 전체(날짜/카테고리/상위카테고리/슬러그)를 자동으로 보여준다
+   (react-notion-x의 Collection 컴포넌트, .notion-collection-page-properties). 블로그에선
+   이미 우리가 직접 카테고리·날짜를 따로 표시하므로 중복이라 숨긴다.
+   react-notion-x 자체 규칙도 같은 단일 클래스 선택자(specificity 0,1,0)라서 단순
+   `.notion-collection-page-properties`로는 로드 순서상 notion 쪽이 나중이라 이겨버림 —
+   `.notion` 부모를 더해 specificity를 올려서 항상 이기게 한다. */
+.notion .notion-collection-page-properties {
+  display: none;
+}
+
+/* 본문 안에 수동으로 넣은 "목차" 블록(인라인, .notion-table-of-contents)은 숨긴다.
+   posts/[slug]/page.tsx가 직접 만든 사이드 목차(TableOfContents.tsx)를 오른쪽에
+   따로 두므로 중복이라 안 보이게 함.
+   (참고: react-notion-x 자체의 showTableOfContents/PageAside 기능은 fullPage=true
+   일 때만 동작하는데, fullPage 모드는 노션 자체 다크모드 배경색(.dark-mode의
+   --bg-color: #2f3437)이 우리 테마색과 다르게 새어나오는 등 부작용이 있어서 안 씀 —
+   대신 notion-utils의 getPageTableOfContents로 우리가 직접 그린다.) */
+.notion .notion-table-of-contents {
+  display: none;
 }

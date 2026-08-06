@@ -55,7 +55,7 @@ export default function RootLayout({
           {themeInitScript}
         </Script>
         <Header />
-        <div className="mx-auto grid max-w-[var(--layout-max-width)] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] lg:gap-[var(--layout-gap)]">
+        <div className="mx-auto grid max-w-[var(--layout-max-width)] grid-cols-1 items-start gap-6 px-6 py-6 lg:grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] lg:gap-[var(--layout-gap)]">
           <Sidebar />
           <main>{children}</main>
           {rightPanel}

@@ -26,7 +26,7 @@ export default async function PostRightPanel({ params }: PageProps) {
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="sticky top-6 flex flex-col gap-5">
       <TableOfContents items={toc} />
       <RightPanel />
     </div>

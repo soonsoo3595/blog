@@ -8,9 +8,25 @@ export default function Header() {
     <header className="border-b border-border">
       <div className="flex items-center justify-between px-6 py-3">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="블로그 로고" width={32} height={32} />
+          {/* 로고 원본이 라이트 그린 선으로 그려져 있어서 흰 배경(라이트 모드)에선
+              대비가 안 나온다. 진한 초록으로 다시 칠한 버전을 라이트 모드 전용으로 두고
+              CSS로만 전환한다(JS 상태 없이 .dark 클래스만으로 즉시 전환, 깜빡임 없음). */}
+          <Image
+            src="/logo-light.png"
+            alt="뎁밥 로고"
+            width={48}
+            height={48}
+            className="dark:hidden"
+          />
+          <Image
+            src="/logo.png"
+            alt="뎁밥 로고"
+            width={48}
+            height={48}
+            className="hidden dark:block"
+          />
           <span className="text-base font-semibold tracking-tight">
-            블로그 이름
+            뎁밥
           </span>
         </Link>
 

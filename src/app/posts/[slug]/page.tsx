@@ -20,7 +20,7 @@ export async function generateMetadata({
     return {};
   }
 
-  const description = `${post.categoryPath.join(" > ")} 카테고리 · 개발과 일상을 기록하는 개인 블로그`;
+  const description = `${post.categoryPath.join(" > ")} 카테고리 · 뎁밥 — 개발과 일상을 기록하는 개인 블로그`;
 
   return {
     title: post.title,

@@ -20,10 +20,10 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "블로그",
-    template: "%s | 블로그",
+    default: "뎁밥",
+    template: "%s | 뎁밥",
   },
-  description: "개발과 일상을 기록하는 개인 블로그",
+  description: "뎁밥 — 개발과 일상을 기록하는 개인 블로그",
 };
 
 const themeInitScript = `

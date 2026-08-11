@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 import { getCategories, getPublishedPosts, type CategoryTreeNode } from "@/lib/notion";
 
+// 빌드 시점에 정적으로 미리 만들면 노션 API 호출이 빌드에 필요해지고(런타임 시크릿을
+// 빌드에 넣어야 함) 내용도 다음 배포 전까지 갱신이 안 된다. 요청마다 새로 만들게 함.
+export const dynamic = "force-dynamic";
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 function flattenCategoryNames(

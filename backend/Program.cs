@@ -14,13 +14,20 @@ builder.Services.AddDbContext<BlogDbContext>(options =>
 
 var app = builder.Build();
 
+// blog-api는 외부에 직접 노출되지 않고 backend 네트워크 안에서 blog-web이
+// 평문 HTTP로만 호출하는 내부 전용 서비스라 HTTPS 리다이렉트가 필요 없다
+// (오히려 내부 호출을 깨뜨릴 수 있어서 뺐다).
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<BlogDbContext>().Database.MigrateAsync();
+}
 
 app.UseAuthorization();
 

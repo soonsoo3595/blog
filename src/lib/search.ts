@@ -79,19 +79,24 @@ export async function searchPosts(query: string): Promise<SearchHit[]> {
     return [];
   }
 
-  const res = await meiliFetch(`/indexes/${INDEX_NAME}/search`, {
-    method: "POST",
-    body: JSON.stringify({
-      q: query,
-      limit: 8,
-      attributesToRetrieve: ["id", "slug", "title", "category", "date"],
-    }),
-  });
+  try {
+    const res = await meiliFetch(`/indexes/${INDEX_NAME}/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        q: query,
+        limit: 8,
+        attributesToRetrieve: ["id", "slug", "title", "category", "date"],
+      }),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = (await res.json()) as { hits: SearchHit[] };
+    return data.hits;
+  } catch {
+    // Meilisearch(홈서버 터널)가 안 떠 있어도 검색창은 그냥 결과 없음으로 처리
     return [];
   }
-
-  const data = (await res.json()) as { hits: SearchHit[] };
-  return data.hits;
 }

@@ -330,7 +330,8 @@ export const getCategories = cache(async (): Promise<CategoryTreeNode[]> => {
         name: row.name,
         postCount: postCountByName.get(row.name) ?? 0,
         children: build(row.id, new Set(ancestors).add(row.id)),
-      }));
+      }))
+      .filter((node) => node.postCount > 0);
   }
 
   return build(null, new Set());

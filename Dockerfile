@@ -24,6 +24,9 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# standalone 출력은 import되는 파일만 자동으로 담아서, About.tsx가 런타임에
+# fs로 직접 읽는 about.md는 따로 복사해야 한다.
+COPY --from=builder --chown=nextjs:nodejs /app/src/content ./src/content
 
 USER nextjs
 EXPOSE 3000

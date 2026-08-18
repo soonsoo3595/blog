@@ -1,6 +1,9 @@
 # 홈서버 Docker 네트워크가 불안정할 때 쓰는 대안 빌드 경로:
 # 로컬에서 `npm run build`로 만든 .next/standalone, .next/static, public, src/content를
 # standalone/static/public/content 이름으로 옆에 두고 이 Dockerfile로 이미지만 만든다.
+# NEXT_PUBLIC_* 값은 로컬 build 시점 환경에서 그대로 굽혀지므로, 프로덕션용으로 쓸 땐
+# `NEXT_PUBLIC_SITE_URL=https://devbap.co.kr npm run build`처럼 값을 넘기고 빌드할 것
+# (.env.local엔 NEXT_PUBLIC_SITE_URL이 없어서 안 넘기면 localhost로 빌드됨).
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production

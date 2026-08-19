@@ -30,9 +30,9 @@
 
 배포·Docker Compose 설정은 이 레포가 아니라 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra)에서 관리한다 (`DOCKER.md` 컨벤션 참고: 컨테이너 하나당 독립 compose 프로젝트, `backend`/`proxy` 네트워크 등).
 
-## 진행 상황 (2026-08-06 기준)
+## 진행 상황 (2026-08-19 기준)
 
-**프론트엔드 레이아웃을 만드는 중이며, 아직 완성이 아니다.** 사용자가 직접 코드를 보면서 값(간격, 너비, 색상 등)을 계속 조정해나갈 예정이니, 다음 세션에서는 "레이아웃이 최종 확정됐다"고 가정하지 말고 현재 어디까지 됐는지부터 확인할 것.
+**`https://devbap.co.kr`에 프로덕션 배포 완료, 라이브 상태.** 블로그 이름/로고("뎁밥") 확정, Docker 이미지 빌드(`blog-web`/`blog-api`), Cloudflare Tunnel 연결까지 끝남. 배포 인프라(Docker Compose, Traefik, Cloudflare Tunnel)는 이 레포가 아니라 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra)에서 관리 — 자세한 배포 과정과 트러블슈팅은 그 레포의 `Session Log/` 참고. 프론트엔드 레이아웃은 계속 다듬는 중이니, "최종 확정됐다"고 가정하지 말고 현재 상태부터 확인할 것. 모바일 레이아웃이 아직 깨져있음(다음에 고치기로 함, 아래 "알려진 이슈" 참고).
 
 **데스크탑에서 홈서버로 SSH 키 인증이 새로 설정돼서(`ssh homeserver`), 세션에서 직접 홈서버 Postgres/Meilisearch에 SSH 터널로 접근할 수 있게 됨** — 그동안 "홈서버 접근 가능해지면 재개"로 보류했던 조회수/검색 기능을 오늘 이걸로 재개해서 완료함. 자세한 내용은 [HomeServer/CLAUDE.md](../HomeServer/CLAUDE.md) 참고.
 
@@ -66,7 +66,7 @@
 
 - 포트폴리오 버튼 미동작 — 블로그 완성 뒤 작업 예정, 의도적 보류 (알림/설정은 헤더에서 제거함)
 - Meilisearch 재인덱싱이 수동 트리거(`/api/search/reindex`)뿐이라, 노션에서 글을 쓰거나 수정해도 검색 결과에 자동 반영되지 않음 — Jenkins 배포 파이프라인에 붙이거나 주기적 cron 등으로 자동화하는 게 남은 과제
-- 조회수/방문자 수는 로컬 개발 중 쌓인 값이라 **실제 배포 시 `PostView`/`VisitorLog` 테이블을 리셋하고 시작할 것** (사용자가 명시적으로 요청함)
+- **모바일 레이아웃이 깨져있음** — `https://devbap.co.kr`을 모바일 브라우저로 접속하면 레이아웃이 이상하다고 확인됨(2026-08-19). 원인 파악 전, 다음에 고치기로 함.
 
 ### 남은 작업
 
@@ -76,8 +76,9 @@
 - [x] ~~검색 기능 실제 동작~~ — 완료. Meilisearch를 홈서버 컨테이너로 띄우고, 노션 글 본문을 인덱싱해 헤더 검색창에서 실시간 드롭다운으로 결과 표시. 재인덱싱은 아직 수동(위 "알려진 이슈" 참고).
 - [x] ~~댓글 기능~~ — 완료(`Comments.tsx`, giscus). 레포 Discussions 활성화·giscus 앱 설치·`.env.local` 설정값까지 다 끝내고 동작 확인함.
 - [x] ~~조회수 기능~~ — 완료. `.NET+Postgres` 백엔드(`backend/`)를 새로 만들고 쿠키 기반 하루 1회 카운트로 구현. 같이 진행하기로 했던 블로그 방문자 수(`RightPanel`)도 함께 완료. 좋아요는 giscus의 리액션(`reactionsEnabled="1"`)으로 대체돼서 별도 구현 불필요.
-- [ ] Cloudflare Tunnel 외부 노출 — **보류: 도메인 미보유.** 도메인 구매·Cloudflare 등록 후 재개 (레이아웃도 그 전까지 계속 정리)
+- [x] ~~Cloudflare Tunnel 외부 노출~~ — 완료. `devbap.co.kr` 도메인 구매(가비아, 네임서버는 Cloudflare로 전환), `blog-web`/`blog-api` Docker 이미지 빌드, Traefik + Cloudflare Tunnel로 프로덕션 배포 완료(2026-08-19). 배포 직전 `PostView`/`VisitorLog` 테이블 리셋도 완료.
 - ~~RSS 자동 생성~~ — **하지 않기로 결정** (더 이상 진행하지 않음)
+- [ ] 모바일 레이아웃 수정 (위 "알려진 이슈" 참고)
 
 ## 커밋 메시지 규칙
 

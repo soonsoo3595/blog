@@ -1,92 +1,70 @@
 # blog
 
-개인 블로그. 콘텐츠 작성·수정은 본인만, 방문자는 검색·댓글만 이용한다. 개발뿐 아니라 일상 등 다양한 주제를 다루는 블로그다.
+개발과 일상을 기록하는 개인 블로그 **뎁밥**. 작성·수정은 본인만 Notion에서 수행하고, 방문자는 글 조회·검색·댓글·리액션을 이용한다.
 
 @AGENTS.md
 
-## 기술 스택
+## 문서 기준
 
-- **프론트엔드**: Next.js (React, SSG/SSR 유연 선택)
-- **백엔드**: .NET (ASP.NET Core Web API)
-- **DB**: PostgreSQL — JSONB로 유동적 스키마(태그/메타데이터) 처리, 내장 Full Text Search, permissive 오픈소스 라이선스, Npgsql 드라이버 성숙도가 선택 이유
-- **캐시**: Redis
-- **콘텐츠 관리**: 자체 마크다운 에디터 대신 **노션(Notion)에서 글을 쓰고, 블로그는 그 페이지를 읽기 전용으로 보여주는 뷰어** 역할만 한다 (`react-notion-x` 활용, 구현 완료). 자체 에디터 UX가 마음에 안 들어서 나온 결정.
-- **디자인**: 라이트·다크 모드, 노션 스타일 참고 (변경 가능)
+2026-10-18 저장소 코드 기준. 실행 환경과 운영 서버 연결은 이번 정리에서 검증하지 않았다. 과거 기록상 2026-08-19에 [devbap.co.kr](https://devbap.co.kr)로 배포했으며 현재 운영 상태는 별도 확인이 필요하다.
+
+개발 시작은 [README.md](README.md), 파일별 주의사항은 [docs/STRUCTURE.md](docs/STRUCTURE.md), 남은 작업과 제약은 [docs/ISSUES.md](docs/ISSUES.md)를 확인한다.
+
+## 기술 스택과 서비스
+
+| 영역 | 현재 구현 |
+|---|---|
+| 프론트엔드 | Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 |
+| 콘텐츠 | Notion 글 DB + 카테고리 DB. 블로그는 읽기 전용 뷰어 |
+| Notion 연결 | @notionhq/client로 속성·목록 조회, notion-client로 본문 조회, react-notion-x로 렌더링 |
+| 검색 | Next.js API → Meilisearch. 공개 글 제목·본문·카테고리 인덱싱 |
+| 댓글·리액션 | giscus → GitHub Discussions. 글 경로별 스레드 |
+| 프로필 | GitHub 공개 사용자 API. 하루 캐시 |
+| 조회수·방문자 | Next.js API → .NET 9 Web API → PostgreSQL (EF Core + Npgsql) |
+
+Redis는 초기 계획이며 현재 연동 코드는 없다. 분석 서비스 Umami·Plausible도 미도입이다.
 
 ## 콘텐츠와 코드의 분리
 
-이 레포는 public이라, 실제로 작성한 글 내용은 이 레포에 커밋하지 않는다. 글은 배포된 블로그 앱의 UI를 통해 작성하고, 실제 데이터는 서버의 Postgres DB(또는 런타임 데이터 저장 경로)에 저장한다 — [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra) 레포의 `data/`가 git에서 제외되는 것과 같은 원칙. 이 레포에는 애플리케이션 코드만 들어간다.
+이 저장소는 public이므로 실제 게시글과 비밀값을 커밋하지 않는다. 게시글은 Notion에, 조회수·방문자 기록은 PostgreSQL에 저장한다. src/content/about.md는 저장소에서 관리하는 사이드바 소개글이다.
 
-## 부가 기능
+블로그 관리자 인증·자체 에디터는 Notion 도입으로 제거했다. 기존 mock 인증을 되살리지 않는다. 별도 좋아요는 giscus 리액션으로 대체하며 RSS는 만들지 않기로 했다.
 
-| 영역 | 선택 | 이유 |
-|---|---|---|
-| 댓글 | giscus (GitHub Discussions) ✅ | 서버·DB 불필요, XSS·스팸 리스크 최소 |
-| 검색 | Meilisearch(self-hosted) ✅ | 읽기 전용이라 리스크 낮음 |
-| 분석 | Umami 또는 Plausible(self-hosted) | 프라이버시 친화적 |
-| SEO | sitemap.xml ✅ / RSS 자동 생성 — **하지 않기로 결정** | |
+## 주요 구조와 유지할 규칙
 
-## 인프라
+- src/app/layout.tsx: 헤더와 3열 레이아웃. 크기는 globals.css의 CSS 변수로 관리한다. 오른쪽 열은 @rightPanel 병렬 라우트다. 새 화면 경로에는 슬롯에도 대응 페이지를 추가한다. default.tsx만으로는 클라이언트 이동 시 이전 목차가 남는 문제를 막지 못한다.
+- Sidebar.tsx: ProfileCard / About / CategoryList 분리를 유지한다. 카테고리는 계층형이며 공개 글이 없는 가지는 숨긴다. 펼침 상태는 전체 경로를 키로 localStorage에 저장한다.
+- src/lib/notion.ts: public_url이 있는 글만 노출한다. 부모 Relation으로 카테고리 경로를 만들고 상위 카테고리에 하위 글을 포함한다. React cache()는 같은 요청 내 중복 조회를 줄인다.
+- 관련 포스트: 글 DB의 같은 이름 Relation 속성을 읽어 본문과 댓글 사이에 표시한다. 공개된 같은 DB의 글만 API 관계 순서대로 연결하며, 자기 자신·중복은 제외하고 빈 영역은 숨긴다.
+- NotionPage.tsx: fullPage=false 유지. 목차는 오른쪽 슬롯에서 별도 생성한다. 본문·댓글 테마는 html.dark를 관찰해 동기화한다. 서드파티 CSS 충돌에 주의한다.
+- 조회수 API: viewed_<postId> httpOnly 쿠키로 같은 브라우저에서 24시간 동안 중복 증가를 억제한다. 계정·IP 기준 고유 조회수는 아니다.
+- 방문자 API: 1년짜리 visitor_id httpOnly 쿠키를 발급한다. 백엔드는 (VisitorId, Date)로 일별 중복을 막는다. 날짜는 UTC이며 전체 수는 고유 방문자 ID 개수다.
+- src/lib/search.ts: 공개 글을 평문으로 추출해 Meilisearch에 보낸다. POST /api/search/reindex와 x-reindex-secret 헤더로 수동 갱신한다.
+- backend/Program.cs: 시작 시 DB 마이그레이션 적용. /health/db로 DB 연결을 확인한다. API는 인프라 내부에서 프론트엔드가 호출하는 서비스로 설계됐다.
+- SEO: 글·카테고리 메타데이터와 canonical URL, sitemap.xml, robots.txt가 있다. 사이트맵은 요청 시 생성한다.
 
-배포·Docker Compose 설정은 이 레포가 아니라 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra)에서 관리한다 (`DOCKER.md` 컨벤션 참고: 컨테이너 하나당 독립 compose 프로젝트, `backend`/`proxy` 네트워크 등).
+## 설정과 배포
 
-## 진행 상황 (2026-08-19 기준)
+환경 변수는 [.env.local.example](.env.local.example)을 기준으로 한다. 예시의 GITHUB_TOKEN은 현재 코드에서 사용하지 않는다. DB 연결 문자열은 ConnectionStrings:Default로 주입하고 로컬에서는 dotnet user-secrets를 사용한다.
 
-**`https://devbap.co.kr`에 프로덕션 배포 완료, 라이브 상태.** 블로그 이름/로고("뎁밥") 확정, Docker 이미지 빌드(`blog-web`/`blog-api`), Cloudflare Tunnel 연결까지 끝남. 배포 인프라(Docker Compose, Traefik, Cloudflare Tunnel)는 이 레포가 아니라 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra)에서 관리 — 자세한 배포 과정과 트러블슈팅은 그 레포의 `Session Log/` 참고. 프론트엔드 레이아웃은 계속 다듬는 중이니, "최종 확정됐다"고 가정하지 말고 현재 상태부터 확인할 것. 모바일 레이아웃이 아직 깨져있음(다음에 고치기로 함, 아래 "알려진 이슈" 참고).
+프론트엔드 기본 포트는 3000, 백엔드 HTTP 프로필은 5145, Meilisearch 기본 포트는 17700이다. 홈서버 연결에는 SSH 설정·터널이 필요하며 현재 PC에서 접근 가능하다고 가정하지 않는다.
 
-**데스크탑에서 홈서버로 SSH 키 인증이 새로 설정돼서(`ssh homeserver`), 세션에서 직접 홈서버 Postgres/Meilisearch에 SSH 터널로 접근할 수 있게 됨** — 그동안 "홈서버 접근 가능해지면 재개"로 보류했던 조회수/검색 기능을 오늘 이걸로 재개해서 완료함. 자세한 내용은 [HomeServer/CLAUDE.md](../HomeServer/CLAUDE.md) 참고.
+Docker Compose·Traefik·Cloudflare Tunnel은 별도 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra) 저장소에서 관리한다. 이 저장소는 프론트엔드·백엔드 Dockerfile과 로컬 standalone 산출물용 Dockerfile.runtime을 제공한다. NEXT_PUBLIC_*는 빌드 시 고정되며 런타임에 읽는 src/content/about.md는 이미지에 별도로 복사한다.
 
-오늘(2026-08-06) 한 것 — 사이드바 카테고리 접기/펼치기(상태 `localStorage` 캐시) + 카테고리별 글 개수 표시, 포스트 상세 오른쪽 열을 `@rightPanel` Parallel Route로 리팩토링(목차를 본문 옆에서 오른쪽 열로 옮겨 본문 폭 확보), GitHub 계정명 하드코딩 제거(`GITHUB_USERNAME` 환경 변수화), 댓글 기능(giscus) 코드 연동 완료. 이어서(같은 날 이어진 세션) `backend/`(.NET Web API) 프로젝트 스캐폴딩과 Postgres 연결, 포스트 조회수 기능(쿠키 기반 하루 1회 카운트), 블로그 방문자 수 기능(`RightPanel`의 mock 데이터 제거), 포스트 상세 오른쪽 열 목차·통계 패널 sticky 겹침 버그 수정 + 사이드바·오른쪽 패널 전체에 sticky 적용, Meilisearch 기반 검색 기능(노션 본문 인덱싱 + 헤더 검색창 실시간 드롭다운)까지 추가함.
+## 남은 작업
 
-### 지금까지 만들어진 구조
-
-상세 구현 노트(함정·이유 포함)는 [docs/STRUCTURE.md](docs/STRUCTURE.md) 참고 — 아래 파일들을 고치기 전에 관련 항목을 확인할 것.
-
-- `src/app/layout.tsx` — 헤더 + 3열 그리드(Sidebar/본문/RightPanel), 크기값은 `globals.css`의 `:root` CSS 변수로 모아둠. 그리드에 `items-start`를 추가해둠(기본값 `stretch`였을 때 오른쪽 열이 본문 높이만큼 늘어나면서 sticky 겹침 버그의 원인이 됐었음). 오른쪽 열은 `@rightPanel` Parallel Route 슬롯(`src/app/@rightPanel/`)으로 라우트별로 다른 내용을 보여줌(포스트 상세는 목차+통계, 그 외는 통계만) — 함정 있음, 문서 참고
-- `src/components/Header.tsx` — 로고 + 블로그 이름 / 검색 → 테마 토글 → 포트폴리오 (알림·설정 버튼은 죽은 기능이라 제거함)
-- 관리자 인증 기능은 만들었다가 삭제함(노션 연동으로 불필요해짐) — **되살리지 말 것**
-- `src/components/Sidebar.tsx` — `ProfileCard`/`About`/`CategoryList` 조합 (컴포넌트 분리 유지할 것) — 함정 있음, 문서 참고. `CategoryList` → `CategoryTree`(접기/펼치기, 글 개수 표시)는 문서의 `CategoryList.tsx` 항목 참고. `sticky top-6`로 스크롤을 따라감
-- `src/components/RightPanel.tsx` — 방문자 통계 + 광고 자리(미정). 클라이언트 컴포넌트로 전환, mount 시 `/api/visits`(→ .NET 백엔드 `VisitorLog`)에 방문 기록 후 오늘/전체 방문자 수 표시. mock 제거됨(`src/lib/mock.ts` 삭제). 홈/카테고리/기본 라우트에서는 `sticky top-6` 래퍼로 감싸서 사용(포스트 상세는 아래 `TableOfContents.tsx` 항목 참고)
-- `src/lib/notion.ts` — 노션 연동 핵심 로직 — **함정 다수, 문서 참고**
-- `src/app/categories/[category]/page.tsx` — 카테고리별 글 목록 — 함정 있음, 문서 참고
-- `src/components/NotionPage.tsx` — `react-notion-x` 렌더러 — 함정 있음, 문서 참고
-- `src/components/TableOfContents.tsx` — 포스트 상세 오른쪽 사이드 목차. 컴포넌트 자체는 더 이상 sticky를 갖지 않음 — `src/app/@rightPanel/posts/[slug]/page.tsx`가 목차+통계를 하나의 `sticky top-6` 그룹으로 묶어서 렌더링함 (각자 따로 sticky였다가 스크롤 중 서로 겹치는 버그가 있어서 수정)
-- `src/app/posts/[slug]/page.tsx` — 포스트 상세, 제목+날짜+조회수(`ViewCounter.tsx`)+본문+댓글(`Comments.tsx`, giscus). 목차는 `@rightPanel` 슬롯으로 분리됨
-- `src/components/Comments.tsx` — giscus 댓글, 동작 확인 완료
-- `src/components/ViewCounter.tsx`, `src/lib/views.ts`, `src/app/api/views/[postId]/route.ts` — 포스트 조회수. `views.ts`가 .NET 백엔드(`PostView`)와 통신, Route Handler가 `httpOnly` 쿠키(`viewed_<postId>`, 24시간)로 하루 1회만 카운트되게 함
-- `src/lib/visits.ts`, `src/app/api/visits/route.ts` — 블로그 방문자 수. Route Handler가 `visitor_id` 쿠키(1년, `httpOnly`)를 발급하고 .NET 백엔드(`VisitorLog`)에 방문 기록
-- `src/lib/search.ts`, `src/app/api/search/route.ts`, `src/app/api/search/reindex/route.ts`, `src/components/SearchBar.tsx` — Meilisearch 기반 검색. `search.ts`가 노션 글 본문을 `notion-utils`로 평문 추출해 인덱싱. 재인덱싱은 `/api/search/reindex`를 `x-reindex-secret` 헤더로 호출해야 함(자동 트리거 없음 — 노션에서 글 수정해도 자동 반영 안 됨, 수동으로 다시 호출 필요)
-- `backend/` — .NET Web API 백엔드(`Blog.Api`). `PostView`(조회수), `VisitorLog`(방문자 수) 두 테이블, EF Core + Npgsql로 홈서버 Postgres의 `blog` DB에 연결. 로컬 개발 시 `ssh -L 15432:localhost:15432 homeserver` 터널 필요, 연결 문자열은 `dotnet user-secrets`로 관리(레포에 안 남음). `dotnet run`으로 `http://localhost:5145`에서 실행(포트는 `Properties/launchSettings.json`)
-- `.env.local`(git 미포함) — 필요한 키 전체와 발급 방법은 `.env.local.example` 참고(노션 토큰/DB 2개, GitHub 계정명·토큰, giscus 설정 4개, 사이트 URL, `BACKEND_API_URL`, Meilisearch 호스트·API 키, `REINDEX_SECRET`)
-- `src/app/globals.css` — 서드파티 CSS 충돌 방어 패턴, 색상 변수 등 — 함정 있음, 문서 참고
-
-### 알려진 이슈 / 미해결
-
-상세 내용은 [docs/ISSUES.md](docs/ISSUES.md) 참고 — 관련 작업을 시작하기 전에 확인할 것.
-
-- 포트폴리오 버튼 미동작 — 블로그 완성 뒤 작업 예정, 의도적 보류 (알림/설정은 헤더에서 제거함)
-- Meilisearch 재인덱싱이 수동 트리거(`/api/search/reindex`)뿐이라, 노션에서 글을 쓰거나 수정해도 검색 결과에 자동 반영되지 않음 — Jenkins 배포 파이프라인에 붙이거나 주기적 cron 등으로 자동화하는 게 남은 과제
-- **모바일 레이아웃이 깨져있음** — `https://devbap.co.kr`을 모바일 브라우저로 접속하면 레이아웃이 이상하다고 확인됨(2026-08-19). 원인 파악 전, 다음에 고치기로 함.
-
-### 남은 작업
-
-- [x] ~~노션을 콘텐츠 소스로 연동~~ — 완료. 글 목록/카테고리/상세 페이지(노션 본문 렌더링)까지 실제 노션 데이터로 동작 확인함.
-- [x] ~~카테고리 클릭 → 해당 카테고리 문서 목록 페이지~~ — 완료. `/categories/[category]`, 상위/하위 카테고리 둘 다 클릭 가능.
-- [x] ~~SEO 기본기~~ — 완료. 글/카테고리별 `generateMetadata`(제목·설명·OG), `sitemap.xml`, `robots.txt` 추가.
-- [x] ~~검색 기능 실제 동작~~ — 완료. Meilisearch를 홈서버 컨테이너로 띄우고, 노션 글 본문을 인덱싱해 헤더 검색창에서 실시간 드롭다운으로 결과 표시. 재인덱싱은 아직 수동(위 "알려진 이슈" 참고).
-- [x] ~~댓글 기능~~ — 완료(`Comments.tsx`, giscus). 레포 Discussions 활성화·giscus 앱 설치·`.env.local` 설정값까지 다 끝내고 동작 확인함.
-- [x] ~~조회수 기능~~ — 완료. `.NET+Postgres` 백엔드(`backend/`)를 새로 만들고 쿠키 기반 하루 1회 카운트로 구현. 같이 진행하기로 했던 블로그 방문자 수(`RightPanel`)도 함께 완료. 좋아요는 giscus의 리액션(`reactionsEnabled="1"`)으로 대체돼서 별도 구현 불필요.
-- [x] ~~Cloudflare Tunnel 외부 노출~~ — 완료. `devbap.co.kr` 도메인 구매(가비아, 네임서버는 Cloudflare로 전환), `blog-web`/`blog-api` Docker 이미지 빌드, Traefik + Cloudflare Tunnel로 프로덕션 배포 완료(2026-08-19). 배포 직전 `PostView`/`VisitorLog` 테이블 리셋도 완료.
-- ~~RSS 자동 생성~~ — **하지 않기로 결정** (더 이상 진행하지 않음)
-- [ ] 모바일 레이아웃 수정 (위 "알려진 이슈" 참고)
+- 모바일 레이아웃: 과거 운영 확인에서 보고된 문제의 원인·해결 여부 재확인.
+- 검색: 재인덱싱 자동화, 등록 응답·작업 완료 확인, 비공개·삭제 글 동기화.
+- 포트폴리오: /portfolio 링크는 있지만 페이지가 없다. 블로그 완성 후 작업하기로 보류했다.
+- 기타 코드상 제약은 [docs/ISSUES.md](docs/ISSUES.md) 참고.
 
 ## 커밋 메시지 규칙
 
-`[태그] | [내용]` 형식, 내용은 한글로 작성.
+태그 | 내용 형식이며 내용은 한글로 작성한다.
 
 - **Feat** — 신 기능 추가
 - **Fix** — 기능 수정
 - **Debug** — 버그 수정
 - **Refactor** — 리팩토링
-- **Docs** — 문서 추가/수정
-- **Chore** — 빌드 설정, 의존성, 기능과 무관한 잡다한 작업
+- **Docs** — 문서 추가·수정
+- **Chore** — 빌드 설정, 의존성, 기능과 무관한 작업

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPostBySlug, getPageRecordMap } from "@/lib/notion";
+import { getPostBySlug, getPageRecordMap, getRelatedPosts } from "@/lib/notion";
 import { getPostViewCount } from "@/lib/views";
 import NotionPage from "@/components/NotionPage";
 import Comments from "@/components/Comments";
 import ViewCounter from "@/components/ViewCounter";
+import RelatedPosts from "@/components/RelatedPosts";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -44,8 +45,11 @@ export default async function PostDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const recordMap = await getPageRecordMap(post.id);
-  const viewCount = await getPostViewCount(post.id);
+  const [recordMap, viewCount, relatedPosts] = await Promise.all([
+    getPageRecordMap(post.id),
+    getPostViewCount(post.id),
+    getRelatedPosts(post.id),
+  ]);
 
   return (
     <article className="flex flex-col gap-8">
@@ -58,6 +62,7 @@ export default async function PostDetailPage({ params }: PageProps) {
         </p>
       </div>
       <NotionPage recordMap={recordMap} />
+      <RelatedPosts posts={relatedPosts} />
       <Comments />
     </article>
   );

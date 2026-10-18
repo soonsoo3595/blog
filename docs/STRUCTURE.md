@@ -1,10 +1,10 @@
 # 구조 상세 노트
 
-CLAUDE.md "지금까지 만들어진 구조"에서 분리한 상세 기록. 아래 파일들을 고치기 전에 관련 항목을 확인할 것 — 다들 한 번씩 삽질하고 알아낸 함정들임.
+2026-10-18 저장소 코드 기준으로 대조한 구현 노트. 파일 수정 전에 관련 항목을 확인한다. 운영 서버·외부 서비스 연결은 검증하지 않았다. 남은 작업과 코드상 제약은 [ISSUES.md](ISSUES.md)를 참고한다.
 
 ## `src/app/layout.tsx`
 
-헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서. `metadata`에 `metadataBase`(`NEXT_PUBLIC_SITE_URL` 기준)와 `title.template`("%s | 블로그")를 설정해둬서, 하위 페이지는 `generateMetadata`에서 짧은 제목만 넘기면 자동으로 접미사가 붙음.
+헤더 + 3열 그리드(좌측 Sidebar / 가운데 본문 / 우측 RightPanel). 레이아웃 크기값(너비, 간격)은 전부 `src/app/globals.css`의 `:root` 상단에 CSS 변수(`--layout-max-width`, `--sidebar-width`, `--right-panel-width`, `--layout-gap`)로 모아둠 — 값 조정은 여기서. `metadata`에 `metadataBase`(`NEXT_PUBLIC_SITE_URL` 기준)와 `title.template`("%s | 뎁밥")를 설정해둬서, 하위 페이지는 `generateMetadata`에서 짧은 제목만 넘기면 자동으로 접미사가 붙음.
 
 오른쪽 열은 `{children}`처럼 고정 컴포넌트가 아니라 **Parallel Routes**(`@rightPanel` 슬롯, `rightPanel` prop)로 라우트별로 다른 내용을 보여준다 — 포스트 상세 페이지에서 본문 폭이 너무 좁아 보인다는 피드백으로, 목차를 본문 옆(`main` 컬럼 안에서 `article`과 `flex`로 나눠 쓰던 방식)이 아니라 이 오른쪽 열로 옮기면서 도입함.
 
@@ -12,7 +12,7 @@ CLAUDE.md "지금까지 만들어진 구조"에서 분리한 상세 기록. 아�
 
 ## `src/components/Header.tsx`
 
-로고(`public/logo.svg`, 교체 가능) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 테마 토글 → 포트폴리오 순서. 알림·설정 버튼은 UI만 있고 계획도 없던 죽은 기능이라 제거함 — 포트폴리오는 블로그 완성 후 작업 예정이라 의도적으로 남겨둠(`docs/ISSUES.md` 참고).
+로고(라이트: `public/logo-light.png`, 다크: `public/logo.png`) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 테마 토글 → 포트폴리오 순서. 알림·설정 버튼은 UI만 있고 계획도 없던 죽은 기능이라 제거함 — 포트폴리오는 블로그 완성 후 작업 예정이라 의도적으로 남겨둠([ISSUES.md](ISSUES.md) 참고).
 
 ## 관리자 인증 기능 (삭제됨)
 
@@ -32,7 +32,7 @@ GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이�
 
 "상위카테고리"는 노션의 **"하위 항목"(Sub-items) 기능**으로 만든 짝 속성인 "상위 항목"(Parent item)의 이름을 "상위카테고리"로 바꿔서 쓰는 것 — 진짜 Relation. 이 기능을 쓰기 전에 두 번 삽질했음: (1) 처음엔 그냥 Relation 속성 하나를 직접 만들어 같은 DB를 가리키는 self-relation으로 썼는데, 노션이 양방향으로 자동 동기화해서(C++의 상위카테고리를 개발로 지정하면 개발의 상위카테고리에도 자동으로 C++이 채워짐) 부모/자식 방향을 구분할 수 없었음. (2) 그래서 Select + 부모 이름 텍스트로 우회했다가, 노션이 정확히 이 문제(계층 구조)를 위해 만들어둔 "하위 항목" 기능을 찾아서 다시 Relation으로 전환함 — "상위 항목"(부모, 직접 편집)과 "하위 항목"(자식 목록, 반대 방향 읽기 전용 뷰)이 처음부터 별개 속성으로 분리돼 있어서 self-relation 문제가 없음. 글 DB의 "카테고리" 속성 자체는 이 카테고리 DB를 가리키는 별개의 **Relation**이고, 이건 서로 다른 두 DB 간 관계라 애초에 방향성 문제가 없었음.
 
-`getCategories()`(`src/lib/notion.ts`)가 카테고리 DB를 통째로 가져와 `CategoryTreeNode[]`(`{ name, children }` 재귀 구조) 트리로 만들어 반환한다. 글이 있든 없든 카테고리 DB에 정의된 전체 구조를 보여줌(글 유무로 필터링 안 함) — 나중에 "글 있는 것만" 표시가 필요해지면 여기서 손볼 것.
+`getCategories()`(`src/lib/notion.ts`)가 카테고리 DB를 통째로 가져와 `CategoryTreeNode[]`(`{ name, postCount, children }` 재귀 구조) 트리로 만들어 반환한다. 각 노드에서 `postCount > 0`인 경우만 남겨, 자기 자신과 하위 카테고리에 공개 글이 없는 가지는 숨긴다.
 
 `CategoryList.tsx`(서버 컴포넌트)는 데이터만 가져오고, 실제 트리 렌더링은 `CategoryTree.tsx`(클라이언트 컴포넌트)에 위임한다 — 접기/펼치기 상태(`useState`)를 다뤄야 해서 분리함. 각 노드의 화살표 버튼을 누르면 접히고, 펼침 상태는 전체 경로(예: `"개발/게임/언리얼"`)를 키로 해서 `localStorage`(`categoryTree:collapsed`)에 저장 — 이름만으로는 서로 다른 상위 카테고리 아래 동명 카테고리가 있을 때 충돌할 수 있어서 경로 전체를 씀. 서버 렌더링 시점엔 localStorage에 접근할 수 없어 항상 "전체 펼침"으로 그리고, 마운트 후 `useEffect`에서 저장된 상태를 반영한다(하이드레이션 불일치 방지) — 이 때문에 `setState`를 effect 안에서 동기 호출하게 되어 `react-hooks/set-state-in-effect` 린트 규칙에 걸리는데, 의도된 패턴이라 해당 줄만 `eslint-disable-next-line`으로 넘김. 하위 카테고리 목록의 들여쓰기는 세로선(`border-l`) 대신 `list-disc` 불릿으로 표시.
 
@@ -40,7 +40,7 @@ GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이�
 
 ## `src/components/RightPanel.tsx`
 
-방문자 통계(mock) + "추후 추가"(광고 자리, 아직 미정) 패널. 이 컴포넌트 자체는 라우트를 모르는 순수 프레젠테이션이고, 어느 라우트에서 보여줄지는 `src/app/@rightPanel/`(위 `layout.tsx` 항목 참고)이 결정한다.
+실제 방문자 통계 + "추후 추가"(광고 자리, 아직 미정) 패널. 클라이언트 컴포넌트로 마운트 시 `/api/visits`에 POST하여 실제 통계를 가져온다. 라우트는 직접 판단하지 않으며, 어느 라우트에서 보여줄지는 `src/app/@rightPanel/`(위 `layout.tsx` 항목 참고)이 결정한다.
 
 ## `src/lib/notion.ts`
 
@@ -67,7 +67,7 @@ GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이�
 
 ## `src/app/categories/[category]/page.tsx`
 
-Next.js는 동적 라우트 세그먼트(`params`)를 자동으로 `decodeURIComponent` 해주지 않음(App Router 공통 이슈) — 카테고리 값에 `+`처럼 인코딩되는 문자가 있으면(`C++` → `C%2B%2B`) 디코딩 안 한 채로 노션 쪽에 넘어가 매칭 실패함. 페이지에서 직접 `decodeURIComponent(category)` 호출, `CategoryList.tsx`의 링크도 `encodeURIComponent`로 감싸서 생성함. `generateMetadata`로 카테고리별 제목/설명도 설정.
+현재 카테고리 페이지는 동적 라우트 값에 명시적으로 `decodeURIComponent`를 적용한다 — 카테고리 값에 `+`처럼 인코딩되는 문자가 있으면(`C++` → `C%2B%2B`) 디코딩 안 한 채로 노션 쪽에 넘어가 매칭 실패함. 페이지에서 직접 `decodeURIComponent(category)` 호출, `CategoryTree.tsx`의 링크도 `encodeURIComponent`로 감싸서 생성함. `generateMetadata`로 카테고리별 제목/설명도 설정.
 
 ## `src/components/NotionPage.tsx`
 
@@ -75,11 +75,11 @@ Next.js는 동적 라우트 세그먼트(`params`)를 자동으로 `decodeURICom
 
 `darkMode` prop은 `document.documentElement.classList.contains("dark")`를 `MutationObserver`로 지켜보며 실제 테마에 맞춰 넘김 — 예전에 `darkMode={false}`로 고정해뒀다가 라이브러리의 다크모드 전용 스타일(`.dark-mode .notion-callout` 등)이 전혀 적용 안 돼서 다크모드에서 본문이 잘 안 보이는 문제가 있었음.
 
-`fullPage`는 **의도적으로 `false`로 고정**돼 있음. `react-notion-x`의 사이드 목차(`showTableOfContents`/`PageAside`)는 `fullPage={true}`일 때만 렌더링되는 코드 경로라 처음엔 켜봤으나, `fullPage` 모드는 노션 자체 헤더/제목/커버까지 같이 그려서 우리 것과 중복되고, `.dark-mode`가 로컬로 재정의하는 `--bg-color`(노션 자체 다크그레이 `#2f3437`)가 우리 페이지 배경(`#0e1116`)과 달라 목차/속성 박스에서 색이 겉도는 문제가 있었음. 그래서 `fullPage=false` 그대로 두고, 목차는 `posts/[slug]/page.tsx`에서 `notion-utils`의 `getPageTableOfContents`로 직접 만든다 (`TableOfContents.tsx`).
+`fullPage`는 **의도적으로 `false`로 고정**돼 있음. `react-notion-x`의 사이드 목차(`showTableOfContents`/`PageAside`)는 `fullPage={true}`일 때만 렌더링되는 코드 경로라 처음엔 켜봤으나, `fullPage` 모드는 노션 자체 헤더/제목/커버까지 같이 그려서 우리 것과 중복되고, `.dark-mode`가 로컬로 재정의하는 `--bg-color`(노션 자체 다크그레이 `#2f3437`)가 우리 페이지 배경(`#0e1116`)과 달라 목차/속성 박스에서 색이 겉도는 문제가 있었음. 그래서 `fullPage=false` 그대로 두고, 목차는 `src/app/@rightPanel/posts/[slug]/page.tsx`에서 `notion-utils`의 `getPageTableOfContents`로 직접 만든다 (`TableOfContents.tsx`).
 
 ## `src/components/TableOfContents.tsx`
 
-`getPageTableOfContents(getBlockValue(recordMap.block[post.id]), recordMap)`로 뽑아낸 목차 항목을 받아 `position: sticky`로 렌더링하는 순수 프레젠테이션 컴포넌트. 각 항목 링크는 `#${uuidToId(item.id)}` — `react-notion-x`가 헤딩 블록마다 `id={uuidToId(block.id)}`인 앵커 `div`를 이미 심어두므로(일반 블록 렌더링 경로라 `fullPage`와 무관하게 항상 존재) 그냥 브라우저 네이티브 앵커 스크롤로 동작함. 예전엔 `posts/[slug]/page.tsx`가 직접 렌더링했지만, 지금은 `src/app/@rightPanel/posts/[slug]/page.tsx`가 이 계산과 렌더링을 맡는다(아래 `layout.tsx`/`RightPanel.tsx` 항목 참고) — 본문 폭을 넓히려고 오른쪽 열로 옮김.
+`getPageTableOfContents(getBlockValue(recordMap.block[post.id]), recordMap)`로 뽑아낸 목차 항목을 받아 렌더링하는 순수 프레젠테이션 컴포넌트. 각 항목 링크는 `#${uuidToId(item.id)}` — `react-notion-x`가 헤딩 블록마다 `id={uuidToId(block.id)}`인 앵커 `div`를 이미 심어두므로(일반 블록 렌더링 경로라 `fullPage`와 무관하게 항상 존재) 그냥 브라우저 네이티브 앵커 스크롤로 동작함. 예전엔 `posts/[slug]/page.tsx`가 직접 렌더링했지만, 지금은 `src/app/@rightPanel/posts/[slug]/page.tsx`가 이 계산과 렌더링을 맡는다(위 `layout.tsx`/`RightPanel.tsx` 항목 참고) — 본문 폭을 넓히려고 오른쪽 열로 옮김. 목차 자체에는 sticky가 없고 슬롯이 목차와 통계를 하나의 `sticky top-6` 그룹으로 묶어 겹침을 방지한다.
 
 ## `src/components/Pagination.tsx`
 
@@ -91,7 +91,15 @@ Next.js는 동적 라우트 세그먼트(`params`)를 자동으로 `decodeURICom
 
 목차는 더 이상 여기서 렌더링하지 않는다 — `src/app/@rightPanel/posts/[slug]/page.tsx`(같은 `posts/[slug]` 경로를 미러링하는 Parallel Route 슬롯)로 옮겼다. 그 슬롯도 `getPostBySlug`/`getPageRecordMap`을 독립적으로 호출하는데, 둘 다 `cache()`로 감싸져 있어(같은 요청 안에서 같은 인자면) 실제 노션 API 호출은 한 번만 나간다. 존재하지 않는 slug면 이 페이지는 `notFound()`를 던지지만, `@rightPanel` 슬롯 쪽은 그냥 `null`을 반환하도록 해뒀다 — `notFound()`는 페이지 전체를 404로 대체하므로 슬롯이 따로 에러를 던질 필요가 없음.
 
-본문(`NotionPage`) 아래에 `Comments`(giscus)를 붙여뒀다.
+본문(`NotionPage`) 아래에 `RelatedPosts`(관련 포스트), `Comments`(giscus)를 순서대로 표시한다.
+
+### 관련 포스트
+
+글 DB의 `관련 포스트` Relation 속성은 같은 글 DB의 다른 글을 가리킨다. `getRelatedPosts(postId)`는 사이드바와 공유하는 요청 내 공개 페이지 조회를 재사용해 관계 대상의 제목·슬러그·카테고리를 얻는다. 관계 응답의 `has_more`가 켜져 있으면 속성 API의 커서를 따라 나머지도 읽는다.
+
+Notion API가 반환한 관계 순서를 유지하되, 자기 자신·중복·비공개·삭제·다른 DB의 페이지는 제외한다. `RelatedPosts.tsx`는 블로그 내부 `/posts/[slug]` 링크를 렌더링하며 표시할 글이 없으면 제목과 영역을 모두 숨긴다. 역방향 관계를 블로그에서 임의로 추가하거나 같은 카테고리 글을 자동 추천하지 않는다. 속성 이름은 `관련 포스트`와 정확히 일치해야 한다.
+
+검증: `node --test tests/related-posts.test.mjs`로 공개 여부·순서·중복·슬러그 폴백·관계 페이지네이션·빈 UI와 링크 렌더링을 확인한다. 실제 Notion 연동 확인에는 `.env.local` 설정이 필요하다.
 
 ## `src/components/Comments.tsx`
 
@@ -111,7 +119,7 @@ giscus는 레포 쪽 설정(Discussions 활성화, giscus 앱 설치, Discussion
 
 ## `src/lib/mock.ts`
 
-이제 방문자 통계(`mockStats`)만 남아있음. 카테고리/글 mock은 노션 연동으로 대체되어 삭제함.
+파일은 삭제되어 현재 존재하지 않는다. 글·카테고리는 Notion으로, 방문자 통계는 .NET + PostgreSQL 연동으로 대체했다.
 
 ## `src/app/sitemap.ts`, `src/app/robots.ts`
 

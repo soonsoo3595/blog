@@ -55,6 +55,11 @@ type NotionPage = {
     // DB는 서로 다른 DB라 self-relation 방향성 문제가 없음 — 아래 CategoryRow 주석
     // 참고). 실제 이름/상위 관계는 카테고리 DB 쪽에서 가져온 맵으로 풀어야 함.
     카테고리?: { relation?: { id: string }[] };
+    "관련 포스트"?: {
+      id: string;
+      relation: { id: string }[];
+      has_more?: boolean;
+    };
     // "날짜" 속성을 노션 자동 "생성 일시"(Created time) 타입으로 바꿔서, 응답 구조가
     // 일반 date 속성(`{ date: { start } }`)이 아니라 `{ created_time: "ISO문자열" }`.
     날짜?: { created_time?: string };
@@ -185,11 +190,8 @@ const getCategoryMap = cache(async (): Promise<CategoryMap> => {
 // has_more가 false가 될 때까지 커서를 따라가며 전부 모은다.
 // 여러 컴포넌트(PostList, CategoryList 등)가 같은 요청 안에서 각자 호출하므로
 // cache()로 감싸 중복 조회를 막는다.
-export const getPublishedPosts = cache(async (): Promise<Post[]> => {
-  const [dataSourceId, categoryMap] = await Promise.all([
-    getDataSourceId(DATABASE_ID),
-    getCategoryMap(),
-  ]);
+const getPublishedPages = cache(async (): Promise<NotionPage[]> => {
+  const dataSourceId = await getDataSourceId(DATABASE_ID);
   const results: NotionPage[] = [];
   let cursor: string | undefined;
 
@@ -203,9 +205,59 @@ export const getPublishedPosts = cache(async (): Promise<Post[]> => {
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
 
-  return results
-    .filter((page) => page.public_url != null)
-    .map((page) => toPost(page, categoryMap));
+  return results.filter((page) => page.public_url != null);
+});
+
+export const getPublishedPosts = cache(async (): Promise<Post[]> => {
+  const [pages, categoryMap] = await Promise.all([
+    getPublishedPages(),
+    getCategoryMap(),
+  ]);
+  return pages.map((page) => toPost(page, categoryMap));
+});
+
+// 사이드바에서도 조회하는 공개 글 목록을 재사용한다. 관계에 포함돼 있어도
+// 비공개·삭제·다른 DB의 페이지는 블로그 링크로 노출하지 않는다.
+export const getRelatedPosts = cache(async (postId: string): Promise<Post[]> => {
+  const normalizeId = (id: string) => id.replaceAll("-", "").toLowerCase();
+  const pages = await getPublishedPages();
+  const page = pages.find((item) => normalizeId(item.id) === normalizeId(postId));
+  const relation = page?.properties["관련 포스트"];
+  if (!relation) return [];
+
+  let relatedIds = relation.relation.map((item) => item.id);
+
+  // 페이지 응답에 담긴 관계가 잘린 경우 속성 API의 커서를 따라 전부 읽는다.
+  if (relation.has_more) {
+    relatedIds = [];
+    let cursor: string | undefined;
+    do {
+      const response = await notion.pages.properties.retrieve({
+        page_id: postId,
+        property_id: relation.id,
+        start_cursor: cursor,
+      });
+      if (response.object !== "list") break;
+      for (const item of response.results) {
+        if (item.type === "relation") relatedIds.push(item.relation.id);
+      }
+      cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+    } while (cursor);
+  }
+
+  const posts = await getPublishedPosts();
+  const postsById = new Map(posts.map((post) => [normalizeId(post.id), post]));
+  const seen = new Set([normalizeId(postId)]);
+  const relatedPosts: Post[] = [];
+  for (const id of relatedIds) {
+    const key = normalizeId(id);
+    const post = postsById.get(key);
+    if (post && !seen.has(key)) {
+      seen.add(key);
+      relatedPosts.push(post);
+    }
+  }
+  return relatedPosts;
 });
 
 export const POSTS_PAGE_SIZE = 10;

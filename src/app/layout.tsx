@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import LoadingPanel from "@/components/LoadingPanel";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -47,9 +49,13 @@ export default function RootLayout({
         </Script>
         <Header />
         <div className="mx-auto grid max-w-[var(--layout-max-width)] grid-cols-1 items-start gap-6 px-6 py-6 lg:grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] lg:gap-[var(--layout-gap)]">
-          <Sidebar />
+          <Suspense fallback={<LoadingPanel label="카테고리를 불러오는 중…" />}>
+            <Sidebar />
+          </Suspense>
           <main>{children}</main>
-          {rightPanel}
+          <Suspense fallback={<LoadingPanel label="오른쪽 패널을 불러오는 중…" />}>
+            {rightPanel}
+          </Suspense>
         </div>
       </body>
     </html>

@@ -6,7 +6,7 @@ import SearchBar from "./SearchBar";
 export default function Header() {
   return (
     <header className="border-b border-border">
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
         <Link href="/" className="flex items-center gap-2">
           {/* 로고 원본이 라이트 그린 선으로 그려져 있어서 흰 배경(라이트 모드)에선
               대비가 안 나온다. 진한 초록으로 다시 칠한 버전을 라이트 모드 전용으로 두고
@@ -30,19 +30,20 @@ export default function Header() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3 text-foreground/80">
-          <div className="w-56">
+        <div className="flex max-w-full flex-wrap items-center gap-3 text-foreground/80">
+          <div className="w-40 sm:w-56">
             <SearchBar />
           </div>
 
           <ThemeToggle />
 
           <Link
-            href="/portfolio"
+            href="/quizzes"
             className="rounded-full border border-border px-3 py-1.5 text-sm hover:bg-panel"
           >
-            포트폴리오
+            퀴즈
           </Link>
+
         </div>
       </div>
     </header>

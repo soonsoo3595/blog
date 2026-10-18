@@ -12,7 +12,7 @@
 
 ## `src/components/Header.tsx`
 
-로고(라이트: `public/logo-light.png`, 다크: `public/logo.png`) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 테마 토글 → 포트폴리오 순서. 알림·설정 버튼은 UI만 있고 계획도 없던 죽은 기능이라 제거함 — 포트폴리오는 블로그 완성 후 작업 예정이라 의도적으로 남겨둠([ISSUES.md](ISSUES.md) 참고).
+로고(라이트: `public/logo-light.png`, 다크: `public/logo.png`) + 블로그 이름 / 우측에 검색창(`SearchBar`) → 테마 토글 → 퀴즈 순서. 알림·설정은 제거했으며, 포트폴리오 버튼도 사용자 요청으로 제거했다.
 
 ## 관리자 인증 기능 (삭제됨)
 
@@ -63,7 +63,9 @@ GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이�
 - `getPostsByCategory(name)`은 Notion 쿼리 필터가 아니라 `getPublishedPosts()` 전체를 가져와 `post.categoryPath.includes(name)`으로 코드에서 매칭함(경로의 어느 레벨 이름이든 매칭 — 상위/하위 카테고리 링크가 둘 다 같은 `/categories/[category]` 라우트로 감). Relation을 노션 쿼리 필터로 거르는 것도 예전 Select 필터 400 에러와 비슷하게 까다로워서 이 방식을 유지함.
 - `getPostBySlug()`, `getPublishedPosts()`는 같은 요청 안에서 여러 컴포넌트가 각자 호출해도 중복 조회 안 나가도록 React `cache()`로 감싸둠.
 
-**홈 목록 페이지네이션(`getPublishedPostsPage`):** 글이 많아져도 페이지 번호 클릭으로 바로 이동 가능해야 해서(노션 커서는 순서대로만 넘어가고 임의 점프가 안 됨), 매번 처음부터 "그 페이지까지 필요한 만큼"(`page * pageSize + 1`, 다음 페이지 존재 여부 판단용으로 1개 더)만 요청한다. 정렬 기준이 항상 같아서 결과는 매번 일관됨. 카테고리 페이지는 카테고리 필터를 이런 식으로 못 걸어서(위 참고) 여전히 전체 조회 후 배열을 잘라 페이지네이션함 — `src/components/Pagination.tsx`가 `totalPages`(전체 앎, 카테고리 페이지)와 `hasNextPage`(전체 모름, 홈) 두 모드를 다 지원.
+**공유 목록과 페이지네이션:** `getPublishedPages()`를 Next.js Data Cache에 60초간 보관한다. 홈·사이드바·카테고리·상세가 같은 목록을 재사용한다. 홈은 공개 글 배열에서 해당 페이지를 잘라 `hasNextPage`를 계산하며, 비공개 글이 끼어도 다음 공개 글이 누락되지 않는다. 상세 조회도 이 목록에서 슬러그 또는 페이지 ID를 찾아 별도의 Notion 필터 쿼리를 보내지 않는다. 카테고리는 전체 공개 목록을 필터링하고 페이지를 나눈다.
+
+**본문 캐시와 로딩:** `getPageRecordMap()`은 본문을 300초간 재사용한다. `src/lib/notion-cache.ts`가 현재 Cache Components 미사용 구성에 맞는 `unstable_cache`를 적용하며 DB·토큰 설정의 해시로 캐시를 분리한다. 목록과 본문은 TTL이 지난 후 접근할 때 백그라운드 갱신된다. `POST /api/notion/revalidate`에 `x-reindex-secret` 헤더를 전달하면 다음 요청부터 새 데이터를 읽는다. 검색 재인덱싱도 작업 전 캐시를 만료시킨다. 상세 화면은 조회수 백엔드를 기다리지 않고 렌더링하고 `ViewCounter`가 마운트 후 실제 수를 가져온다. 공통 `loading.tsx`와 사이드바·오른쪽 패널의 Suspense 경계가 로딩 상태를 먼저 표시한다.
 
 ## `src/app/categories/[category]/page.tsx`
 
@@ -100,6 +102,18 @@ GitHub 공개 API(`api.github.com/users/<id>`)에서 아바타·아이디·이�
 Notion API가 반환한 관계 순서를 유지하되, 자기 자신·중복·비공개·삭제·다른 DB의 페이지는 제외한다. `RelatedPosts.tsx`는 블로그 내부 `/posts/[slug]` 링크를 렌더링하며 표시할 글이 없으면 제목과 영역을 모두 숨긴다. 역방향 관계를 블로그에서 임의로 추가하거나 같은 카테고리 글을 자동 추천하지 않는다. 속성 이름은 `관련 포스트`와 정확히 일치해야 한다.
 
 검증: `node --test tests/related-posts.test.mjs`로 공개 여부·순서·중복·슬러그 폴백·관계 페이지네이션·빈 UI와 링크 렌더링을 확인한다. 실제 Notion 연동 확인에는 `.env.local` 설정이 필요하다.
+
+## 퀴즈
+
+`/quizzes`는 `NOTION_QUIZ_DATABASE_ID`로 지정한 별도 Notion DB를 사용한다. 속성은 `제목`(title), `카테고리`(기존 카테고리 DB Relation), `참고`(포스트 DB Relation)이며 퀴즈 페이지 본문이 답이다. 웹에 게시한 문제만 노출한다.
+
+`src/lib/quiz.ts`는 요청 내 캐시와 페이지네이션을 사용해 문제를 읽고, 카테고리 부모를 따라 상위 분류에도 하위 문제를 포함한다. 카테고리 선택 값은 이름 대신 ID로 구분하되, 화면에는 `개발 > 소프트웨어 공학` 같은 경로 대신 `소프트웨어 공학`처럼 이름만 표시한다. 회차 시작 시 선택한 범위의 문제를 무작위로 섞어 한 번씩만 출제한다.
+
+처음에는 `/api/quizzes/question`에서 선택한 카테고리의 문제 제목 목록을 섞어서 클라이언트에 전달한다. 다음 문제는 추가 목록 요청 없이 즉시 전환한다. 답 보기 시 `/api/quizzes/[quizId]/answer`에서 본문 recordMap과 공개 참고 글 링크를 별도로 읽는다. 공개 DB 내 문제인지 검증한 뒤 답을 제공한다. `QuizPlayer`는 답 확인 후 직접 정답·오답을 선택하는 흐름이다. 정답 자동 판정은 하지 않는다. 퀴즈 경로에 대응하는 `@rightPanel/quizzes/page.tsx`도 함께 추가했다.
+
+`맞았어요`·`틀렸어요`를 누르면 문제별 정답·시도 횟수를 집계하고 즉시 다음 문제로 넘어간다. 전체 학습 합계는 사용자 요청으로 제거했으며, 각 문제의 기록만 표시한다. 별도로 `진행 3 / 12`처럼 현재 문제 번호와 회차 전체 후보 수를 표시한다. 시작 전은 `0 / 전체 수`, 끝나면 `전체 수 / 전체 수`와 완료 안내를 표시한다. `다음 문제`로 건너뛴 문제도 진행 번호에는 포함되며, 채점 횟수는 증가하지 않는다. 카테고리를 바꾸면 회차가 초기화되고 `다시 시작`은 후보를 다시 섞는다. 문제별 기록은 회차를 다시 시작해도 유지되지만 영구 저장 방식은 보류 중이므로 새로고침 시 초기화한다. 미구현 기록 API는 호출하지 않는다.
+
+검증: `node --test tests/quiz.test.mjs`.
 
 ## `src/components/Comments.tsx`
 

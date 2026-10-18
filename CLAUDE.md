@@ -34,7 +34,7 @@ Redis는 초기 계획이며 현재 연동 코드는 없다. 분석 서비스 Um
 
 - src/app/layout.tsx: 헤더와 3열 레이아웃. 크기는 globals.css의 CSS 변수로 관리한다. 오른쪽 열은 @rightPanel 병렬 라우트다. 새 화면 경로에는 슬롯에도 대응 페이지를 추가한다. default.tsx만으로는 클라이언트 이동 시 이전 목차가 남는 문제를 막지 못한다.
 - Sidebar.tsx: ProfileCard / About / CategoryList 분리를 유지한다. 카테고리는 계층형이며 공개 글이 없는 가지는 숨긴다. 펼침 상태는 전체 경로를 키로 localStorage에 저장한다.
-- src/lib/notion.ts: public_url이 있는 글만 노출한다. 부모 Relation으로 카테고리 경로를 만들고 상위 카테고리에 하위 글을 포함한다. React cache()는 같은 요청 내 중복 조회를 줄인다.
+- src/lib/notion.ts: public_url이 있는 글만 노출한다. 부모 Relation으로 카테고리 경로를 만들고 상위 카테고리에 하위 글을 포함한다. React cache()는 요청 내 중복을 줄이고, src/lib/notion-cache.ts의 Next.js Data Cache는 목록·카테고리·퀴즈 목록을 60초, 본문을 300초 재사용한다. POST /api/notion/revalidate와 x-reindex-secret 헤더로 즉시 만료시킬 수 있다.
 - 관련 포스트: 글 DB의 같은 이름 Relation 속성을 읽어 본문과 댓글 사이에 표시한다. 공개된 같은 DB의 글만 API 관계 순서대로 연결하며, 자기 자신·중복은 제외하고 빈 영역은 숨긴다.
 - NotionPage.tsx: fullPage=false 유지. 목차는 오른쪽 슬롯에서 별도 생성한다. 본문·댓글 테마는 html.dark를 관찰해 동기화한다. 서드파티 CSS 충돌에 주의한다.
 - 조회수 API: viewed_<postId> httpOnly 쿠키로 같은 브라우저에서 24시간 동안 중복 증가를 억제한다. 계정·IP 기준 고유 조회수는 아니다.
@@ -55,7 +55,7 @@ Docker Compose·Traefik·Cloudflare Tunnel은 별도 [homeserver-infra](https://
 
 - 모바일 레이아웃: 과거 운영 확인에서 보고된 문제의 원인·해결 여부 재확인.
 - 검색: 재인덱싱 자동화, 등록 응답·작업 완료 확인, 비공개·삭제 글 동기화.
-- 포트폴리오: /portfolio 링크는 있지만 페이지가 없다. 블로그 완성 후 작업하기로 보류했다.
+- 포트폴리오: 페이지는 미구현이며 헤더 버튼은 사용자 요청으로 제거했다.
 - 기타 코드상 제약은 [docs/ISSUES.md](docs/ISSUES.md) 참고.
 
 ## 커밋 메시지 규칙

@@ -43,6 +43,7 @@ dotnet run --project backend/Blog.Api.csproj --launch-profile http
 ## 운영과 문서
 
 - 검색 갱신은 `POST /api/search/reindex`에 `x-reindex-secret` 헤더를 전달한다. 자동 갱신은 아직 없다.
+- Notion 목록·카테고리·퀴즈 목록은 1분, 본문은 5분 캐시 후 접근 시 백그라운드 갱신한다. 즉시 반영하려면 `POST /api/notion/revalidate`에 같은 비밀 헤더를 전달한다. 비공개 전환에도 갱신 전까지 지연이 있을 수 있다.
 - 이 저장소는 프론트엔드·백엔드 Dockerfile을 제공한다. Compose·Traefik·Cloudflare Tunnel 설정은 별도 [homeserver-infra](https://github.com/soonsoo3595/homeserver-infra) 저장소에서 관리한다.
 - `NEXT_PUBLIC_*`는 프론트엔드 빌드 시 포함되므로 운영 값으로 빌드해야 한다.
 - [프로젝트 지침](CLAUDE.md), [구조 상세](docs/STRUCTURE.md), [남은 작업과 제약](docs/ISSUES.md)을 참고한다.

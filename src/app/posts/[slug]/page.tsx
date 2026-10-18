@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPostBySlug, getPageRecordMap, getRelatedPosts } from "@/lib/notion";
-import { getPostViewCount } from "@/lib/views";
 import NotionPage from "@/components/NotionPage";
 import Comments from "@/components/Comments";
 import ViewCounter from "@/components/ViewCounter";
@@ -45,9 +44,8 @@ export default async function PostDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [recordMap, viewCount, relatedPosts] = await Promise.all([
+  const [recordMap, relatedPosts] = await Promise.all([
     getPageRecordMap(post.id),
-    getPostViewCount(post.id),
     getRelatedPosts(post.id),
   ]);
 
@@ -58,7 +56,7 @@ export default async function PostDetailPage({ params }: PageProps) {
         <p className="mt-1 flex gap-2 text-sm text-foreground/60">
           <span>{post.date.split("T")[0]}</span>
           <span>·</span>
-          <ViewCounter postId={post.id} initialCount={viewCount} />
+          <ViewCounter key={post.id} postId={post.id} />
         </p>
       </div>
       <NotionPage recordMap={recordMap} />

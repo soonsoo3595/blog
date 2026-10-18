@@ -3,6 +3,7 @@ import { cache } from "react";
 import { Client } from "@notionhq/client";
 import { NotionAPI } from "notion-client";
 import type { ExtendedRecordMap } from "notion-types";
+import { cacheNotion } from "@/lib/notion-cache";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 // 공개 페이지라도 서버에서 브라우저 흉내를 안 내면(User-Agent 없음 등) 노션의
@@ -36,9 +37,7 @@ export type Post = {
 // notion-client(비공식 API)로 본문을 가져올 수 있는 조건과 정확히 일치해서,
 // 별도 "상태"(공개/비공개) 속성 없이 이 값 하나로 공개 여부를 판단한다.
 // cover: 페이지 상단 커버 이미지. "file" 타입(노션에 직접 업로드)이면 signed URL이라
-// 1시간 정도 후 만료되지만, 우리 페이지들이 요청마다 새로 렌더링돼서(캐싱 안 함)
-// 매번 신선한 URL을 받아오므로 실제로는 문제 안 됨 — 나중에 ISR 등 캐싱을 도입하면
-// 이 부분을 다시 고려할 것.
+// 1시간 정도 후 만료된다. 목록 캐시는 60초로 URL 유효 시간보다 짧게 유지한다.
 type NotionPage = {
   id: string;
   public_url?: string | null;
@@ -126,7 +125,7 @@ function toPost(page: NotionPage, categoryMap: CategoryMap): Post {
 // 글 DB/카테고리 DB 둘 다 써서 database_id별로 캐싱한다.
 const dataSourceIdCache = new Map<string, string>();
 
-async function getDataSourceId(databaseId: string): Promise<string> {
+export async function getDataSourceId(databaseId: string): Promise<string> {
   const cached = dataSourceIdCache.get(databaseId);
   if (cached) return cached;
 
@@ -149,7 +148,7 @@ async function getDataSourceId(databaseId: string): Promise<string> {
 
 // 카테고리 DB 전체를 가져온다(글이 아니라 카테고리 자체 개수 기준이라 100개
 // 넘을 일이 거의 없겠지만, 글 목록과 같은 이유로 커서까지 따라간다).
-const getCategoryRows = cache(async (): Promise<CategoryRow[]> => {
+const getCategoryRows = cache(cacheNotion("category-rows", async (): Promise<CategoryRow[]> => {
   const dataSourceId = await getDataSourceId(CATEGORY_DATABASE_ID);
   const rows: CategoryRow[] = [];
   let cursor: string | undefined;
@@ -178,9 +177,9 @@ const getCategoryRows = cache(async (): Promise<CategoryRow[]> => {
   } while (cursor);
 
   return rows;
-});
+}));
 
-const getCategoryMap = cache(async (): Promise<CategoryMap> => {
+export const getCategoryMap = cache(async (): Promise<CategoryMap> => {
   const rows = await getCategoryRows();
   return new Map(rows.map((row) => [row.id, row]));
 });
@@ -190,7 +189,7 @@ const getCategoryMap = cache(async (): Promise<CategoryMap> => {
 // has_more가 false가 될 때까지 커서를 따라가며 전부 모은다.
 // 여러 컴포넌트(PostList, CategoryList 등)가 같은 요청 안에서 각자 호출하므로
 // cache()로 감싸 중복 조회를 막는다.
-const getPublishedPages = cache(async (): Promise<NotionPage[]> => {
+const getPublishedPages = cache(cacheNotion("published-pages", async (): Promise<NotionPage[]> => {
   const dataSourceId = await getDataSourceId(DATABASE_ID);
   const results: NotionPage[] = [];
   let cursor: string | undefined;
@@ -206,7 +205,7 @@ const getPublishedPages = cache(async (): Promise<NotionPage[]> => {
   } while (cursor);
 
   return results.filter((page) => page.public_url != null);
-});
+}));
 
 export const getPublishedPosts = cache(async (): Promise<Post[]> => {
   const [pages, categoryMap] = await Promise.all([
@@ -262,46 +261,18 @@ export const getRelatedPosts = cache(async (postId: string): Promise<Post[]> => 
 
 export const POSTS_PAGE_SIZE = 10;
 
-// 홈 목록 페이지네이션용. 글이 많아져도 페이지 번호를 누르면 바로 이동 가능해야
-// 해서(순서대로만 넘어가는 커서 체이닝 대신), 매번 처음부터 "그 페이지까지 필요한
-// 만큼"(page * pageSize)만 요청한다 — 정렬 기준이 항상 같으므로 결과는 매번
-// 일관되고, 전체 글을 다 가져오지 않아도 된다.
-// "다음 페이지 존재 여부"를 추가 요청 없이 바로 판단하려고 필요한 것보다 1개 더
-// 가져온다. 공개 여부(public_url) 필터링은 응답을 받은 뒤에만 할 수 있어서, 그
-// 사이에 비공개 글이 섞여 있으면 실제 개수가 페이지당 정확히 pageSize보다 적게
-// 나올 수 있음(드물고, 다음 페이지에서 자연히 이어짐) — 감안하고 단순하게 감.
+// 사이드바가 이미 쓰는 공개 글 목록을 공유해 별도의 Notion 조회를 없앤다.
+// 공개 여부를 먼저 거른 목록을 자르므로 비공개 글 때문에 다음 페이지가 누락되지 않는다.
 export async function getPublishedPostsPage(
   page: number,
   pageSize = POSTS_PAGE_SIZE,
 ): Promise<{ posts: Post[]; hasNextPage: boolean }> {
-  const [dataSourceId, categoryMap] = await Promise.all([
-    getDataSourceId(DATABASE_ID),
-    getCategoryMap(),
-  ]);
-  const targetCount = page * pageSize + 1;
-  const results: NotionPage[] = [];
-  let cursor: string | undefined;
-
-  while (results.length < targetCount) {
-    const res = await notion.dataSources.query({
-      data_source_id: dataSourceId,
-      sorts: [{ property: "날짜", direction: "descending" }],
-      start_cursor: cursor,
-      page_size: Math.min(100, targetCount - results.length),
-    });
-    results.push(...(res.results as NotionPage[]));
-    if (!res.has_more) break;
-    cursor = res.next_cursor ?? undefined;
-  }
-
-  const filtered = results
-    .filter((p) => p.public_url != null)
-    .map((page) => toPost(page, categoryMap));
+  const posts = await getPublishedPosts();
   const start = (page - 1) * pageSize;
 
   return {
-    posts: filtered.slice(start, start + pageSize),
-    hasNextPage: filtered.length > page * pageSize,
+    posts: posts.slice(start, start + pageSize),
+    hasNextPage: posts.length > start + pageSize,
   };
 }
 
@@ -317,29 +288,9 @@ export async function getPostsByCategory(category: string): Promise<Post[]> {
 // generateMetadata와 페이지 컴포넌트가 같은 요청 안에서 둘 다 호출하므로,
 // cache()로 감싸 같은 slug에 대해 노션 API가 중복으로 나가지 않게 한다.
 export const getPostBySlug = cache(async (slug: string): Promise<Post | null> => {
-  const [dataSourceId, categoryMap] = await Promise.all([
-    getDataSourceId(DATABASE_ID),
-    getCategoryMap(),
-  ]);
-  const res = await notion.dataSources.query({
-    data_source_id: dataSourceId,
-    filter: { property: "슬러그", rich_text: { equals: slug } },
-  });
-  const page = res.results[0] as NotionPage | undefined;
-  if (page) return page.public_url != null ? toPost(page, categoryMap) : null;
-
-  // "슬러그" 속성이 비어있는 글은 목록에서 노션 페이지 id를 그대로 URL로
-  // 쓰게 되는데, 그 경우를 위해 페이지 id로도 조회를 시도한다.
-  try {
-    const fallbackPage = (await notion.pages.retrieve({
-      page_id: slug,
-    })) as NotionPage;
-    if (fallbackPage.public_url == null) return null;
-    const post = toPost(fallbackPage, categoryMap);
-    return post.slug === slug || fallbackPage.id === slug ? post : null;
-  } catch {
-    return null;
-  }
+  const posts = await getPublishedPosts();
+  const normalizeId = (id: string) => id.replaceAll("-", "").toLowerCase();
+  return posts.find((post) => post.slug === slug || normalizeId(post.id) === normalizeId(slug)) ?? null;
 });
 
 export type CategoryTreeNode = {
@@ -393,7 +344,7 @@ export const getCategories = cache(async (): Promise<CategoryTreeNode[]> => {
 // 요청 안에서 각자 이 함수를 부르므로, cache()로 감싸 recordMap을 중복으로
 // 받아오지 않게 한다.
 export const getPageRecordMap = cache(
-  async (pageId: string): Promise<ExtendedRecordMap> => {
+  cacheNotion("page-body", async (pageId: string): Promise<ExtendedRecordMap> => {
     return notionApi.getPage(pageId);
-  },
+  }, 300),
 );

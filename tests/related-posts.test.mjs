@@ -54,6 +54,7 @@ function setup(pages, propertyPages = []) {
   };
   const lib = loadTypeScript("src/lib/notion.ts", {
     "server-only": {},
+    "@/lib/notion-cache": { cacheNotion: (_name, fn) => fn },
     react: { cache: (fn) => fn },
     "@notionhq/client": { Client: class { constructor() { return client; } } },
     "notion-client": { NotionAPI: class {} },
@@ -83,6 +84,25 @@ test("속성이 없거나 관계가 비었거나 공개 대상이 없으면 빈 
   for (const id of ["missing", "empty", "hidden-only", "unknown"]) {
     assert.equal((await getRelatedPosts(id)).length, 0);
   }
+});
+
+test("공개 글을 기준으로 페이지를 나누고 목록에서 슬러그와 페이지 ID를 조회한다", async () => {
+  const { getPublishedPostsPage, getPostBySlug } = setup([
+    page("private", { published: false }),
+    page("aa-aa", { slug: "first" }),
+    page("bb-bb", { slug: "" }),
+    page("cc-cc", { slug: "third" }),
+  ]);
+  const first = await getPublishedPostsPage(1, 2);
+  assert.deepEqual(Array.from(first.posts, (post) => post.id), ["aa-aa", "bb-bb"]);
+  assert.equal(first.hasNextPage, true);
+  const second = await getPublishedPostsPage(2, 2);
+  assert.deepEqual(Array.from(second.posts, (post) => post.id), ["cc-cc"]);
+  assert.equal(second.hasNextPage, false);
+  assert.equal((await getPostBySlug("first")).id, "aa-aa");
+  assert.equal((await getPostBySlug("BBBB")).id, "bb-bb");
+  assert.equal(await getPostBySlug("private"), null);
+  assert.equal(await getPostBySlug("unknown"), null);
 });
 
 test("잘린 관계는 속성 API의 다음 커서까지 조회한다", async () => {
